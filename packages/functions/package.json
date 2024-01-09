@@ -7,9 +7,14 @@
     "typecheck": "tsc -noEmit"
   },
   "devDependencies": {
-    "@types/node": "^20.10.7",
     "@types/aws-lambda": "^8.10.131",
-    "vitest": "^1.1.3",
-    "sst": "^2.39.2"
+    "@types/node": "^20.10.7",
+    "sst": "^2.39.2",
+    "vitest": "^1.1.3"
+  },
+  "dependencies": {
+    "axios": "^1.6.5",
+    "chrome-aws-lambda": "^10.1.0",
+    "puppeteer-core": "^10.4.0"
   }
 }

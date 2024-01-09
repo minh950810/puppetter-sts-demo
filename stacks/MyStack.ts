@@ -1,19 +1,20 @@
-import { StackContext } from 'sst/constructs';
+import { StackContext, Api } from 'sst/constructs';
 import aws from 'aws-sdk';
 import fs from 'fs';
 
 import { 
   aws_lambda as lambda,
-  aws_apigateway as apigateway 
+  aws_dynamodb as dynamodb,
 } from 'aws-cdk-lib';
 
 export async function ApiStack({ stack }: StackContext) {
 
   const s3 = new aws.S3();
   const bucketName = 'demobucket0109';
-  const objectKey = 'layer.zip';
-  const localModulePath = '/tmp/layer.zip'; 
+  const objectKey = 'modules.zip';
+  const localModulePath = '/tmp/modules.zip';
 
+  // Download puppeteer and axios node_modules for lambda layer
   const downloadModule = async () => {
     const params = {
       Bucket: bucketName,
@@ -30,32 +31,36 @@ export async function ApiStack({ stack }: StackContext) {
     });
   };
 
-  // await downloadModule();
-  
+  if (!fs.existsSync(localModulePath)) {
+    await downloadModule();
+  }
+
+  // Create dynamodb table for storing scrapped Datas
+  const myDynamoDBTable = new dynamodb.Table(stack, 'PuppeteerStoreTable', {
+    partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+  });
+
+
+  // Create new layer from downloaded node_modules assets
   const myLayer = new lambda.LayerVersion(stack, 'MyLayer', {
     code: lambda.Code.fromAsset(localModulePath),
     compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
     description: 'My Lambda Layer'
   });
 
+  // Apply lambda layer to the lambda function
   const myLambda = new lambda.Function(stack, 'MyLambda', {
     runtime: lambda.Runtime.NODEJS_18_X,
     handler: 'index.handler',
     code: lambda.Code.fromAsset('packages/functions/src'),
+    environment: {
+      'DYNAMODB_TABLE_NAME': myDynamoDBTable.tableName,
+    }
   });
 
   myLambda.addLayers(myLayer);
 
-  const api = new apigateway.LambdaRestApi(stack, 'MyLambdaRestApi', {
-    handler: myLambda,
-    proxy: false,
-  });
-  const resource = api.root.addResource('exec');
-  resource.addMethod('GET', new apigateway.LambdaIntegration(myLambda), {
-    authorizationType: apigateway.AuthorizationType.NONE,
-  });
-
   stack.addOutputs({
-    ApiEndpoint: api.url,
+    'Table ARN: ': myDynamoDBTable.tableArn,
   });
 }

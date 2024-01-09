@@ -8,7 +8,7 @@ export default {
       region: "us-east-1",
     };
   },
-  stacks(app) {
-    app.stack(ApiStack);
+  async stacks(app) {
+    await app.stack(ApiStack);
   }
 } satisfies SSTConfig;
